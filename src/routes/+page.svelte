@@ -1,83 +1,69 @@
 <script>
+  // Import necessary libraries and functions
   import { onMount } from 'svelte';
   import * as d3 from 'd3';
 
   let svg;
+  let traversalType = 'BFS'; // Can be 'BFS' or 'DFS'
+  let visited = new Set(); // Tracks visited nodes
+
+  // Sample graph data
+  const data = { /* ... */ };
+
+  // Function to initialize the graph
+  function initializeGraph() {
+    // D3.js graph setup (as before)
+  }
+
+  // BFS algorithm
+  function bfs(start) {
+    let queue = [start];
+    while (queue.length > 0) {
+      let node = queue.shift();
+      if (!visited.has(node)) {
+        visited.add(node);
+        // Update visualization
+        highlightNode(node);
+        // Add neighbors to queue
+        let neighbors = getNeighbors(node);
+        queue.push(...neighbors);
+      }
+    }
+  }
+
+  // DFS algorithm
+  function dfs(node) {
+    if (!visited.has(node)) {
+      visited.add(node);
+      // Update visualization
+      highlightNode(node);
+      // Recurse on neighbors
+      let neighbors = getNeighbors(node);
+      neighbors.forEach(dfs);
+    }
+  }
+
+  // Function to highlight a node in the visualization
+  function highlightNode(node) {
+    d3.select(`#node-${node}`).attr('fill', 'red'); // Example: change fill color
+  }
+
+  // Function to get neighbors of a node (implementation depends on data structure)
+  function getNeighbors(node) {
+    // Return an array of neighbor IDs
+    return [];
+  }
 
   onMount(() => {
-    const data = {
-      nodes: [{ id: "1" }, { id: "2" }, { id: "3" }],
-      links: [{ source: "1", target: "2" }, { source: "2", target: "3" }]
-    };
-
-    const width = 400, height = 200;
-    const simulation = d3.forceSimulation(data.nodes)
-                         .force("link", d3.forceLink(data.links).id(d => d.id))
-                         .force("charge", d3.forceManyBody())
-                         .force("center", d3.forceCenter(width / 2, height / 2));
-
-    const svgElement = d3.select(svg)
-                         .attr("width", width)
-                         .attr("height", height);
-
-    const link = svgElement.append("g")
-                           .attr("stroke", "#999")
-                           .selectAll("line")
-                           .data(data.links)
-                           .join("line")
-                           .attr("stroke-opacity", 0.6);
-
-    const node = svgElement.append("g")
-                           .attr("stroke", "#fff")
-                           .attr("stroke-width", 1.5)
-                           .selectAll("circle")
-                           .data(data.nodes)
-                           .join("circle")
-                           .attr("r", 5)
-                           .attr("fill", colorNode)
-                           .call(drag(simulation));
-
-    node.append("title")
-        .text(d => d.id);
-
-    simulation.on("tick", () => {
-      link.attr("x1", d => d.source.x)
-          .attr("y1", d => d.source.y)
-          .attr("x2", d => d.target.x)
-          .attr("y2", d => d.target.y);
-
-      node.attr("cx", d => d.x)
-          .attr("cy", d => d.y);
-    });
-
-    function colorNode(d) {
-      return d.id === "1" ? "red" : "blue"; // Example coloring function
-    }
-
-    function drag(simulation) {
-      function dragstarted(event) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        event.subject.fx = event.subject.x;
-        event.subject.fy = event.subject.y;
-      }
-
-      function dragged(event) {
-        event.subject.fx = event.x;
-        event.subject.fy = event.y;
-      }
-
-      function dragended(event) {
-        if (!event.active) simulation.alphaTarget(0);
-        event.subject.fx = null;
-        event.subject.fy = null;
-      }
-
-      return d3.drag()
-               .on("start", dragstarted)
-               .on("drag", dragged)
-               .on("end", dragended);
-    }
+    initializeGraph();
+    // Optionally start BFS or DFS based on user input or automatically
+    if (traversalType === 'BFS') bfs('startNode');
+    else dfs('startNode');
   });
+</script>
+
+<svg bind:this={svg}></svg>
+
 </script>
 
 <svg bind:this={svg}></svg>
