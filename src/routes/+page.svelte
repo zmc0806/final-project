@@ -22,6 +22,16 @@
         enableRotation();
         enableDrag();
         setupZoom();
+d3.csv('AptianReefs.csv').then(function(data) {
+    svg.selectAll(".data-point")
+        .data(data)
+        .enter().append("circle")
+        .attr("class", "data-point")
+        .attr("cx", d => projection([+d.x, +d.y])[0])
+        .attr("cy", d => projection([+d.x, +d.y])[1])
+        .attr("r", 3)
+        .style("fill", "red"); 
+});
 
         function drawOcean() {
         svg.append("circle")
