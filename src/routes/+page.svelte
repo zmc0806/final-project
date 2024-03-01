@@ -1,7 +1,28 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <style>
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            width: auto;
+            min-width: 80px; /* Minimum width but can expand */
+            height: auto;
+            padding: 2px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            white-space: nowrap; /* Ensure the name is on one line */
+        }
+    </style>
+</head>
 <body>
     <svg></svg>
+    <div class="tooltip"></div>
     <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
     <script>
@@ -16,6 +37,8 @@
         const path = d3.geoPath().projection(projection);
         const graticule = d3.geoGraticule();
 
+        const tooltip = d3.select(".tooltip");
+
         drawOcean();
         drawGlobe();
         drawGraticule();
@@ -24,12 +47,12 @@
         setupZoom();
 
         function drawOcean() {
-        svg.append("circle")
-            .attr("cx", width / 2)
-            .attr("cy", height / 2)
-            .attr("r", projection.scale())
-            .style("fill", "#1E90FF"); // Darker blue for the ocean
-}
+            svg.append("circle")
+                .attr("cx", width / 2)
+                .attr("cy", height / 2)
+                .attr("r", projection.scale())
+                .style("fill", "#1E90FF"); // Darker blue for the ocean
+        }
 
         function drawGlobe() {
             d3.json('https://d3js.org/world-110m.v1.json', function(error, world) {
@@ -42,7 +65,16 @@
                     .attr("d", path)
                     .style("stroke", "#FFF") // White borders for contrast
                     .style("stroke-width", "0.5px")
-                    .style("fill", "#32CD32"); // Greenish land color
+                    .style("fill", "#32CD32") // Greenish land color
+                    .on("mouseover", function(d) {
+                        tooltip.transition().duration(200).style("opacity", .9);
+                        tooltip.html(d.properties.name)
+                            .style("left", (d3.event.pageX + 5) + "px")
+                            .style("top", (d3.event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", function(d) {
+                        tooltip.transition().duration(500).style("opacity", 0);
+                    });
             });
         }
 
@@ -89,23 +121,19 @@
             svg.call(drag);
         }
 
-    
         function setupZoom() {
             const zoom = d3.zoom()
                 .scaleExtent([1, 8])
-                .on('zoom', zoomed);
+                .on('zoom', function() {
+                    const {transform} = d3.event;
+                    const zoomScale = transform.k * 250; // Adjust '250' based on your initial scale
+                    projection.scale(zoomScale);
+                    svg.selectAll("path.segment").attr("d", path);
+                    svg.selectAll("circle").attr("r", projection.scale());
+                });
 
             svg.call(zoom);
-
-            function zoomed(event) {
-                const {transform} = event;
-                const zoomScale = transform.k * 250; // Adjust '250' based on your initial scale
-                projection.scale(zoomScale);
-                svg.selectAll("path.segment").attr("d", path);
-                svg.selectAll("circle.ocean").attr("r", zoomScale);
-            }
         }
     </script>
 </body>
 </html>
-
