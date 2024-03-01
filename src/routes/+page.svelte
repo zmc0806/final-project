@@ -1,42 +1,89 @@
-<!-- SVMVisualization.svelte -->
-<script>
-  import { onMount } from 'svelte';
-  import * as d3 from 'd3';
+<!DOCTYPE html>
+<html>
+    <body>
+        <svg></svg>
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+        <script src="https://d3js.org/topojson.v1.min.js"></script>
+        <script>
+            const width = 960;
+            const height = 500;
+          	const config = {
+              speed: 0.005,
+              verticalTilt: -30,
+              horizontalTilt: 0
+            }
+            let locations = [];
+            const svg = d3.select('svg')
+                .attr('width', width).attr('height', height);
+            const markerGroup = svg.append('g');
+            const projection = d3.geoOrthographic();
+            const initialScale = projection.scale();
+            const path = d3.geoPath().projection(projection);
+            const center = [width/2, height/2];
 
-  let svg;
+            drawGlobe();    
+            drawGraticule();
+            enableRotation();    
 
-  onMount(() => {
-    const width = 800, height = 600;
-    const svg = d3.select(svg)
-      .attr('width', width)
-      .attr('height', height);
+            function drawGlobe() {  
+                d3.queue()
+                    .defer(d3.json, 'https://gist.githubusercontent.com/mbostock/4090846/raw/d534aba169207548a8a3d670c9c2cc719ff05c47/world-110m.json')          
+                    .defer(d3.json, 'locations.json')
+                    .await((error, worldData, locationData) => {
+                        svg.selectAll(".segment")
+                            .data(topojson.feature(worldData, worldData.objects.countries).features)
+                            .enter().append("path")
+                            .attr("class", "segment")
+                            .attr("d", path)
+                            .style("stroke", "#888")
+                            .style("stroke-width", "1px")
+                            .style("fill", (d, i) => '#e5e5e5')
+                            .style("opacity", ".6");
+                            locations = locationData;
+                            drawMarkers();                   
+                    });
+            }
 
-    // Sample data - replace this with your SVM output
-    const dataPoints = [{x: 100, y: 200, class: 0}, {x: 150, y: 300, class: 1}];
-    const decisionBoundary = [{x1: 0, y1: 100, x2: 800, y2: 500}];
-    
-    // Render data points
-    svg.selectAll('.data-point')
-      .data(dataPoints)
-      .enter().append('circle')
-        .attr('class', 'data-point')
-        .attr('cx', d => d.x)
-        .attr('cy', d => d.y)
-        .attr('r', 5)
-        .style('fill', d => d.class === 0 ? 'blue' : 'red');
+            function drawGraticule() {
+                const graticule = d3.geoGraticule()
+                    .step([10, 10]);
 
-    // Render decision boundary
-    svg.selectAll('.decision-boundary')
-      .data(decisionBoundary)
-      .enter().append('line')
-        .attr('x1', d => d.x1)
-        .attr('y1', d => d.y1)
-        .attr('x2', d => d.x2)
-        .attr('y2', d => d.y2)
-        .style('stroke', 'black')
-        .style('stroke-width', 2);
-  });
-</script>
+                svg.append("path")
+                    .datum(graticule)
+                    .attr("class", "graticule")
+                    .attr("d", path)
+                    .style("fill", "#fff")
+                    .style("stroke", "#ccc");
+            }
 
-<svg bind:this={svg}></svg>
+            function enableRotation() {
+                d3.timer(function (elapsed) {
+                    projection.rotate([config.speed * elapsed - 120, config.verticalTilt, config.horizontalTilt]);
+                    svg.selectAll("path").attr("d", path);
+                    drawMarkers();
+                });
+            }        
 
+            function drawMarkers() {
+                const markers = markerGroup.selectAll('circle')
+                    .data(locations);
+                markers
+                    .enter()
+                    .append('circle')
+                    .merge(markers)
+                    .attr('cx', d => projection([d.longitude, d.latitude])[0])
+                    .attr('cy', d => projection([d.longitude, d.latitude])[1])
+                    .attr('fill', d => {
+                        const coordinate = [d.longitude, d.latitude];
+                        gdistance = d3.geoDistance(coordinate, projection.invert(center));
+                        return gdistance > 1.57 ? 'none' : 'steelblue';
+                    })
+                    .attr('r', 7);
+
+                markerGroup.each(function () {
+                    this.parentNode.appendChild(this);
+                });
+            }
+        </script>
+    </body>
+</html>
