@@ -22,15 +22,14 @@
         enableRotation();
         enableDrag();
         setupZoom();
-        drawMarkers();
 
         function drawOcean() {
-            svg.append("circle")
-                .attr("cx", width / 2)
-                .attr("cy", height / 2)
-                .attr("r", projection.scale())
-                .style("fill", "#1E90FF"); // Darker blue for the ocean
-        }
+        svg.append("circle")
+            .attr("cx", width / 2)
+            .attr("cy", height / 2)
+            .attr("r", projection.scale())
+            .style("fill", "#1E90FF"); // Darker blue for the ocean
+}
 
         function drawGlobe() {
             d3.json('https://d3js.org/world-110m.v1.json', function(error, world) {
@@ -47,26 +46,6 @@
             });
         }
 
-        function drawMarkers() {
-            // Replace 'your_path_to_csv_file.csv' with the path to your CSV file
-            d3.csv('AptianReefs.csv', function(error, data) {
-                if (error) throw error;
-
-                data.forEach(function(d) {
-                    d.Latitude = +d.Latitude;
-                    d.Longitude = +d.Longitude;
-                });
-
-                svg.selectAll("circle.marker")
-                    .data(data)
-                    .enter().append("circle")
-                    .attr("class", "marker")
-                    .attr("cx", function(d) { return projection([d.Longitude, d.Latitude])[0]; })
-                    .attr("cy", function(d) { return projection([d.Longitude, d.Latitude])[1]; })
-                    .attr("r", 5) // Adjust the radius as needed
-                    .style("fill", "red"); // Adjust the fill color as needed
-            });
-        }
         function drawGraticule() {
             svg.append("path")
                 .datum(graticule())
@@ -125,7 +104,7 @@
                 svg.selectAll("path.segment").attr("d", path);
                 svg.selectAll("circle.ocean").attr("r", zoomScale);
             }
-        // Rest of your functions (enableRotation, enableDrag, setupZoom) go here...
+        }
     </script>
 </body>
 </html>
