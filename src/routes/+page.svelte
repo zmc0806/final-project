@@ -1,28 +1,7 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <style>
-        .tooltip {
-            position: absolute;
-            text-align: center;
-            width: auto;
-            min-width: 80px; /* Minimum width but can expand */
-            height: auto;
-            padding: 2px;
-            font: 12px sans-serif;
-            background: lightsteelblue;
-            border: 0px;
-            border-radius: 8px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.5s;
-            white-space: nowrap; /* Ensure the name is on one line */
-        }
-    </style>
-</head>
 <body>
     <svg></svg>
-    <div class="tooltip"></div>
     <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
     <script>
@@ -37,14 +16,21 @@
         const path = d3.geoPath().projection(projection);
         const graticule = d3.geoGraticule();
 
-        const tooltip = d3.select(".tooltip");
-
         drawOcean();
         drawGlobe();
         drawGraticule();
         enableRotation();
         enableDrag();
         setupZoom();
+
+        // 添加显示国家名称的文本元素
+        const countryName = svg.append("text")
+            .attr("class", "countryName")
+            .attr("x", 10) // 设置国家名称文本的初始位置
+            .attr("y", 30)
+            .style("font-size", "20px")
+            .style("fill", "black")
+            .style("opacity", 0); // 初始时不显示
 
         function drawOcean() {
             svg.append("circle")
@@ -66,14 +52,14 @@
                     .style("stroke", "#FFF") // White borders for contrast
                     .style("stroke-width", "0.5px")
                     .style("fill", "#32CD32") // Greenish land color
+                    // 添加鼠标事件监听器
                     .on("mouseover", function(d) {
-                        tooltip.transition().duration(200).style("opacity", .9);
-                        tooltip.html(d.properties.name)
-                            .style("left", (d3.event.pageX + 5) + "px")
-                            .style("top", (d3.event.pageY - 28) + "px");
+                        d3.select(this).style("fill", "#FFD700"); // Highlight color
+                        countryName.style("opacity", 1).text(d.properties.name); // 显示国家名
                     })
                     .on("mouseout", function(d) {
-                        tooltip.transition().duration(500).style("opacity", 0);
+                        d3.select(this).style("fill", "#32CD32"); // Reset to original color
+                        countryName.style("opacity", 0); // 隐藏国家名
                     });
             });
         }
@@ -88,6 +74,7 @@
                 .style("stroke-opacity", 0.5);
         }
 
+        // 保留您之前的enableRotation、enableDrag和setupZoom函数不变
         function enableRotation() {
             d3.timer(function(elapsed) {
                 if (!isDragging) {
@@ -137,3 +124,4 @@
     </script>
 </body>
 </html>
+
