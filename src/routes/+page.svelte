@@ -2,43 +2,52 @@
   import { onMount } from 'svelte';
   import * as d3 from 'd3';
 
+  let nodes = [
+    { id: 1 },
+    { id: 2 },
+    { id: 3 },
+  ];
+
+  let links = [
+    { source: 0, target: 1 },
+    { source: 0, target: 2 },
+    { source: 1, target: 2 },
+  ];
+
+  let svg;
+  let force;
+  let dragLine;
+  let edges;
+  let vertices;
+  
+  // Reactive statements would go here for updating the graph when nodes or links change.
+
   onMount(() => {
-    const svg = d3.select("#graph")
-                  .attr("width", 400)
-                  .attr("height", 300);
-
-    const nodes = [{id: 1, x: 100, y: 150}, {id: 2, x: 300, y: 150}];
-    const links = [{source: 1, target: 2}];
-
-    const link = svg.selectAll(".link")
-                    .data(links)
-                    .enter().append("line")
-                    .attr("class", "link")
-                    .attr("x1", d => nodes[d.source - 1].x)
-                    .attr("y1", d => nodes[d.source - 1].y)
-                    .attr("x2", d => nodes[d.target - 1].x)
-                    .attr("y2", d => nodes[d.target - 1].y)
-                    .style("stroke", "#999");
-
-    const node = svg.selectAll(".node")
-                    .data(nodes)
-                    .enter().append("circle")
-                    .attr("class", "node")
-                    .attr("cx", d => d.x)
-                    .attr("cy", d => d.y)
-                    .attr("r", 20)
-                    .style("fill", "#69b3a2");
+    // Initialize your SVG and force layout here, similar to the original JS but adapting for Svelte's syntax.
+    initializeGraph();
   });
+
+  function initializeGraph() {
+    const w = 616, h = 400;
+    svg = d3.select(svg)
+      .attr('width', w)
+      .attr('height', h);
+    
+    // Add drag lines, edges, vertices, etc.
+    
+    force = d3.forceSimulation(nodes)
+      .force("link", d3.forceLink(links).id(d => d.id))
+      .force("charge", d3.forceManyBody())
+      .force("center", d3.forceCenter(w / 2, h / 2));
+
+    // More setup, including drag behaviors, tick function, etc.
+  }
+
+  // Define other functions (e.g., addNode, removeNode) here.
 </script>
 
-<svg id="graph"></svg>
+<svg bind:this={svg}>
+  <!-- Your SVG elements and bindings here -->
+</svg>
 
-<style>
-  .link {
-    stroke-width: 2px;
-  }
-  .node {
-    stroke: #fff;
-    stroke-width: 1.5px;
-  }
-</style>
+<!-- Possibly other UI elements for interacting with the graph (buttons, etc.) -->
