@@ -1,53 +1,100 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, reactive } from 'svelte';
   import * as d3 from 'd3';
 
-  let nodes = [
-    { id: 1 },
-    { id: 2 },
-    { id: 3 },
-  ];
-
-  let links = [
-    { source: 0, target: 1 },
-    { source: 0, target: 2 },
-    { source: 1, target: 2 },
-  ];
-
-  let svg;
+  let svgElement;
   let force;
   let dragLine;
-  let edges;
-  let vertices;
-  
-  // Reactive statements would go here for updating the graph when nodes or links change.
+  let width = 616, height = 400; // 默认SVG尺寸
 
-  onMount(() => {
-    // Initialize your SVG and force layout here, similar to the original JS but adapting for Svelte's syntax.
-    initializeGraph();
-  });
+  let nodes = reactive([
+    { id: 1, x: 150, y: 100 },
+    { id: 2, x: 300, y: 100 },
+    { id: 3, x: 450, y: 100 },
+  ]);
 
-  function initializeGraph() {
-    const w = 616, h = 400;
-    svg = d3.select(svg)
-      .attr('width', w)
-      .attr('height', h);
-    
-    // Add drag lines, edges, vertices, etc.
-    
+  let links = reactive([
+    { source: 0, target: 1 },
+    { source: 1, target: 2 },
+  ]);
+
+  let lastNodeId = nodes.length;
+
+  // D3颜色比例尺
+  let color = d3.scaleOrdinal(d3.schemeCategory10);
+
+  function restart() {
+    const svg = d3.select(svgElement);
+
+    // 清除旧的SVG元素
+    svg.selectAll('*').remove();
+
+    // 创建力导向图实例
     force = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(links).id(d => d.id))
-      .force("charge", d3.forceManyBody())
-      .force("center", d3.forceCenter(w / 2, h / 2));
+      .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+      .force("charge", d3.forceManyBody().strength(-500))
+      .force("center", d3.forceCenter(width / 2, height / 2));
 
-    // More setup, including drag behaviors, tick function, etc.
+    // 绘制边
+    svg.append("g")
+      .attr("class", "links")
+      .selectAll("line")
+      .data(links)
+      .join("line")
+      .style("stroke", "#aaa")
+      .style("stroke-width", 2);
+
+    // 绘制节点
+    const node = svg.append("g")
+      .attr("class", "nodes")
+      .selectAll("circle")
+      .data(nodes)
+      .join("circle")
+      .attr("r", 10)
+      .style("fill", d => color(d.id))
+      .call(drag(force));
+
+    // 节点和边的坐标更新
+    force.on("tick", () => {
+      svg.selectAll(".links line")
+        .attr("x1", d => d.source.x)
+        .attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => d.target.y);
+
+      node.attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+    });
   }
 
-  // Define other functions (e.g., addNode, removeNode) here.
+  // D3拖拽配置
+  function drag(simulation) {
+    function dragstarted(event) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      event.subject.fx = event.subject.x;
+      event.subject.fy = event.subject.y;
+    }
+
+    function dragged(event) {
+      event.subject.fx = event.x;
+      event.subject.fy = event.y;
+    }
+
+    function dragended(event) {
+      if (!event.active) simulation.alphaTarget(0);
+      event.subject.fx = null;
+      event.subject.fy = null;
+    }
+
+    return d3.drag()
+      .on("start", dragstarted)
+      .on("drag", dragged)
+      .on("end", dragended);
+  }
+
+  onMount(() => {
+    restart();
+  });
 </script>
 
-<svg bind:this={svg}>
-  <!-- Your SVG elements and bindings here -->
-</svg>
-
-<!-- Possibly other UI elements for interacting with the graph (buttons, etc.) -->
+<svg bind:this={svgElement} width={width} height={height}></svg>
