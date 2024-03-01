@@ -2,8 +2,6 @@
 <html>
 <body>
     <svg></svg>
-    <!-- 添加工具提示的div -->
-    <div id="tooltip" style="position: absolute; opacity: 0; background: #fff; border: 1px solid #000; padding: 5px; pointer-events: none;"></div>
     <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
     <script>
@@ -37,28 +35,39 @@
             d3.json('https://d3js.org/world-110m.v1.json', function(error, world) {
                 if (error) throw error;
 
-                const tooltip = d3.select("#tooltip");
-
+                const countries = topojson.feature(world, world.objects.countries).features;
                 svg.selectAll(".segment")
-                    .data(topojson.feature(world, world.objects.countries).features)
+                    .data(countries)
                     .enter().append("path")
                     .attr("class", "segment")
                     .attr("d", path)
                     .style("stroke", "#FFF") // White borders for contrast
                     .style("stroke-width", "0.5px")
                     .style("fill", "#32CD32") // Greenish land color
-                    .on("mouseover", function(event, d) {
+                    .on("mouseover", function(d) {
                         d3.select(this).style("fill", "#FFD700"); // Highlight color
-                        tooltip.style("opacity", 1)
-                               .html(d.properties.name)
-                               .style("left", (event.pageX + 5) + "px")
-                               .style("top", (event.pageY - 28) + "px");
+                        showCountryName(d.properties.name);
                     })
-                    .on("mouseout", function() {
+                    .on("mouseout", function(d) {
                         d3.select(this).style("fill", "#32CD32"); // Reset to original color
-                        tooltip.style("opacity", 0);
+                        hideCountryName();
                     });
             });
+        }
+
+        // 添加新的函数来显示和隐藏国家名
+        function showCountryName(name) {
+            svg.append("text")
+                .attr("class", "countryName")
+                .attr("x", 20) // 根据需要调整文本位置
+                .attr("y", 35)
+                .text(name)
+                .style("font-size", "20px")
+                .style("fill", "black");
+        }
+
+        function hideCountryName() {
+            svg.selectAll(".countryName").remove(); // 移除国家名的文本元素
         }
 
         function drawGraticule() {
