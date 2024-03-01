@@ -1,5 +1,5 @@
 <script>
-  import { onMount, reactive } from 'svelte';
+  import { onMount } from 'svelte';
   import * as d3 from 'd3';
 
   let svgElement;
@@ -7,16 +7,16 @@
   let dragLine;
   let width = 616, height = 400; // 默认SVG尺寸
 
-  let nodes = reactive([
+  let nodes = [
     { id: 1, x: 150, y: 100 },
     { id: 2, x: 300, y: 100 },
     { id: 3, x: 450, y: 100 },
-  ]);
+  ];
 
-  let links = reactive([
+  let links = [
     { source: 0, target: 1 },
     { source: 1, target: 2 },
-  ]);
+  ];
 
   let lastNodeId = nodes.length;
 
@@ -98,3 +98,4 @@
 </script>
 
 <svg bind:this={svgElement} width={width} height={height}></svg>
+
