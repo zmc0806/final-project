@@ -2,6 +2,8 @@
 <html>
 <body>
     <svg></svg>
+    <!-- 添加工具提示的div -->
+    <div id="tooltip" style="position: absolute; opacity: 0; background: #fff; border: 1px solid #000; padding: 5px; pointer-events: none;"></div>
     <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
     <script>
@@ -23,15 +25,6 @@
         enableDrag();
         setupZoom();
 
-        // 添加显示国家名称的文本元素
-        const countryName = svg.append("text")
-            .attr("class", "countryName")
-            .attr("x", 10) // 设置国家名称文本的初始位置
-            .attr("y", 30)
-            .style("font-size", "20px")
-            .style("fill", "black")
-            .style("opacity", 0); // 初始时不显示
-
         function drawOcean() {
             svg.append("circle")
                 .attr("cx", width / 2)
@@ -44,6 +37,8 @@
             d3.json('https://d3js.org/world-110m.v1.json', function(error, world) {
                 if (error) throw error;
 
+                const tooltip = d3.select("#tooltip");
+
                 svg.selectAll(".segment")
                     .data(topojson.feature(world, world.objects.countries).features)
                     .enter().append("path")
@@ -52,14 +47,16 @@
                     .style("stroke", "#FFF") // White borders for contrast
                     .style("stroke-width", "0.5px")
                     .style("fill", "#32CD32") // Greenish land color
-                    // 添加鼠标事件监听器
-                    .on("mouseover", function(d) {
+                    .on("mouseover", function(event, d) {
                         d3.select(this).style("fill", "#FFD700"); // Highlight color
-                        countryName.style("opacity", 1).text(d.properties.name); // 显示国家名
+                        tooltip.style("opacity", 1)
+                               .html(d.properties.name)
+                               .style("left", (event.pageX + 5) + "px")
+                               .style("top", (event.pageY - 28) + "px");
                     })
-                    .on("mouseout", function(d) {
+                    .on("mouseout", function() {
                         d3.select(this).style("fill", "#32CD32"); // Reset to original color
-                        countryName.style("opacity", 0); // 隐藏国家名
+                        tooltip.style("opacity", 0);
                     });
             });
         }
@@ -74,7 +71,6 @@
                 .style("stroke-opacity", 0.5);
         }
 
-        // 保留您之前的enableRotation、enableDrag和setupZoom函数不变
         function enableRotation() {
             d3.timer(function(elapsed) {
                 if (!isDragging) {
@@ -111,8 +107,8 @@
         function setupZoom() {
             const zoom = d3.zoom()
                 .scaleExtent([1, 8])
-                .on('zoom', function() {
-                    const {transform} = d3.event;
+                .on('zoom', function(event) {
+                    const {transform} = event;
                     const zoomScale = transform.k * 250; // Adjust '250' based on your initial scale
                     projection.scale(zoomScale);
                     svg.selectAll("path.segment").attr("d", path);
