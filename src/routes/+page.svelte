@@ -22,7 +22,7 @@
         enableRotation();
         enableDrag();
         setupZoom();
-d3.csv('AptianReefs.csv').then(function(data) {
+d3.csv('static/AptianReefs.csv').then(function(data) {
     svg.selectAll(".data-point")
         .data(data)
         .enter().append("circle")
