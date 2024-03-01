@@ -2,72 +2,67 @@
   import { onMount } from 'svelte';
   import * as d3 from 'd3';
 
-  let vertices = [];
-  let edges = [];
+  let nodes = [{id: 1}, {id: 2}, {id: 3}];
+  let links = [
+    {source: 0, target: 1},
+    {source: 0, target: 2},
+    {source: 1, target: 2}
+  ];
+  let lastNodeId = nodes.length;
   let svg;
 
   onMount(() => {
-    const width = 800, height = 600;
-
+    const width = 616, height = 400;
     svg = d3.select("#graph").append("svg")
       .attr("width", width)
       .attr("height", height)
-      .on("contextmenu", event => {
-        event.preventDefault();
-      })
-      .on("click", addVertex);
+      .on("contextmenu", event => event.preventDefault());
 
-    function addVertex(event) {
-      if (event.ctrlKey) return;
-      const [x, y] = d3.pointer(event);
-      const vertex = {x, y, id: Date.now()};
-      vertices.push(vertex);
-      updateGraph();
+    const force = d3.forceSimulation(nodes)
+      .force("link", d3.forceLink(links).id(d => d.id))
+      .force("charge", d3.forceManyBody())
+      .force("center", d3.forceCenter(width / 2, height / 2));
+
+    force.on("tick", () => {
+      vertex.attr("cx", d => d.x)
+            .attr("cy", d => d.y);
+
+      edge.attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+    });
+
+    const edge = svg.selectAll(".edge")
+      .data(links)
+      .enter().append("line")
+      .attr("class", "edge");
+
+    const vertex = svg.selectAll(".vertex")
+      .data(nodes)
+      .enter().append("circle")
+      .attr("class", "vertex")
+      .attr("r", 10)
+      .call(d3.drag()
+        .on("start", dragstarted)
+        .on("drag", dragged)
+        .on("end", dragended));
+    
+    function dragstarted(event, d) {
+      if (!event.active) force.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
     }
 
-    function addEdge(startVertex) {
-      return function(event) {
-        const endVertex = vertices.find(v => v.id == event.subject.id);
-        edges.push({source: startVertex, target: endVertex});
-        updateGraph();
-      }
+    function dragged(event, d) {
+      d.fx = event.x;
+      d.fy = event.y;
     }
 
-    function updateGraph() {
-      const vertexSelection = svg.selectAll(".vertex")
-        .data(vertices, d => d.id);
-
-      vertexSelection.enter()
-        .append("circle")
-        .attr("class", "vertex")
-        .attr("r", 10)
-        .attr("cx", d => d.x)
-        .attr("cy", d => d.y)
-        .call(d3.drag().on("start", addEdge))
-        .merge(vertexSelection)
-        .on("contextmenu", event => {
-          const id = event.subject.id;
-          vertices = vertices.filter(v => v.id !== id);
-          edges = edges.filter(e => e.source.id !== id && e.target.id !== id);
-          updateGraph();
-          event.preventDefault();
-        });
-
-      vertexSelection.exit().remove();
-
-      const edgeSelection = svg.selectAll(".edge")
-        .data(edges, d => `${d.source.id}-${d.target.id}`);
-
-      edgeSelection.enter()
-        .append("line")
-        .attr("class", "edge")
-        .attr("x1", d => d.source.x)
-        .attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x)
-        .attr("y2", d => d.target.y)
-        .merge(edgeSelection);
-
-      edgeSelection.exit().remove();
+    function dragended(event, d) {
+      if (!event.active) force.alphaTarget(0);
+      d.fx = null;
+      d.fy = null;
     }
   });
 </script>
@@ -75,7 +70,36 @@
 <div id="graph"></div>
 
 <style>
-  svg { border: 1px solid black; }
-  .vertex { fill: steelblue; cursor: pointer; }
-  .edge { stroke: #999; stroke-opacity: 0.6; }
+  svg {
+    cursor: crosshair;
+    display: block;
+    margin: auto;
+  }
+
+  .edge {
+    stroke: #888;
+    stroke-width: 2px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    cursor: default;
+  }
+
+  .edge:hover, .dragLine {
+    stroke: #333;
+    stroke-width: 3px;
+  }
+
+  .vertex {
+    cursor: pointer;
+    fill: steelblue;
+  }
+
+  .vertex:hover {
+    stroke: #333;
+    opacity: 0.8;
+  }
+
+  .dragLine.hidden {
+    stroke-width: 0;
+  }
 </style>
