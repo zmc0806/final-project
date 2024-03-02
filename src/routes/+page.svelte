@@ -129,16 +129,29 @@
                 .style("stroke-opacity", 0.5);
         }
 
+        let rotationTimer; // 定义一个变量来跟踪旋转计时器
+
         function enableRotation() {
-            d3.timer(function(elapsed) {
+            if (rotationTimer) {
+                rotationTimer.stop();
+            }
+
+            let lastTime = Date.now(); // 初始化上一次旋转的时间
+
+            rotationTimer = d3.timer(function() {
                 if (!isDragging) {
+                    const now = Date.now(); // 获取当前时间
+                    const delta = now - lastTime; // 计算时间差
+                    lastTime = now; // 更新上一次旋转的时间
+
                     const rotate = projection.rotate();
-                    const k = 1 / 55000;
-                    projection.rotate([rotate[0] + k * elapsed, rotate[1]]);
+                    const rotationSpeed = 0.02; // 控制旋转速度，可根据需要调整
+                    projection.rotate([rotate[0] + rotationSpeed * delta, rotate[1]]);
                     svg.selectAll("path").attr("d", path);
                 }
             });
         }
+
 
         function enableDrag() {
             const drag = d3.drag()
