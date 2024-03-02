@@ -1,7 +1,12 @@
 <!DOCTYPE html>
 <html>
 <body>
+    <!-- Dropdown for selecting a year -->
+    <label for="yearSelector">Select Year:</label>
+    <select id="yearSelector"></select>
     <svg></svg>
+
+    <!-- D3.js and TopoJSON for map rendering -->
     <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
     <script>
@@ -15,73 +20,99 @@
             .translate([width / 2, height / 2]);
         const path = d3.geoPath().projection(projection);
         const graticule = d3.geoGraticule();
-        let countryCasesMap = {}; // 存储国家 ISO 代码和 COVID-19 总病例数的映射
+        let countryCasesMap = {};
+        let csvData; // Global variable to store CSV data
 
-        // 加载 CSV 数据
-        d3.csv("gdp-per-capita-worldbank.csv", function(error, csvData) {
+        // Load CSV data
+        d3.csv("gdp-per-capita-worldbank.csv", function(error, data) {
             if (error) throw error;
+            csvData = data; // Store the CSV data globally
 
-            // 填充 countryCasesMap
-            csvData.forEach(function(d) {
-                countryCasesMap[d.iso_code] = d.total_cases;
+            // Populate the year selector with unique years from the data
+            const years = Array.from(new Set(data.map(d => d.Year))).sort();
+            const yearSelector = d3.select("#yearSelector");
+            years.forEach(year => {
+                yearSelector.append("option").text(year).attr("value", year);
             });
 
-            // 一旦数据加载完毕，绘制地图和相关功能
+            // Initialize the map with the first available year
+            updateMapForYear(years[0]);
+        });
+
+        // Update map based on selected year
+        // Update map based on selected year
+        function updateMapForYear(selectedYear) {
+            countryCasesMap = {}; // Reset the map
+            csvData.filter(d => d.Year == selectedYear).forEach(d => {
+                countryCasesMap[d.Entity] = +d["GDP per capita, PPP (constant 2017 international $)"];
+            });
+
+            // Clear previous globe drawings and redraw
+            svg.selectAll(".segment").remove(); // Clear previous countries
+            svg.selectAll(".graticule").remove(); // Clear previous graticules
+            svg.selectAll(".countryName").remove(); // Clear country names
+
+            // Redraw map elements
             drawOcean();
             drawGlobe();
             drawGraticule();
+            // Re-enable rotation after updating
             enableRotation();
-            enableDrag();
-            setupZoom();
+        }
+
+
+        // Listen for year selection changes
+        d3.select("#yearSelector").on("change", function() {
+            updateMapForYear(this.value);
         });
 
+        // Function to draw the ocean
         function drawOcean() {
             svg.append("circle")
                 .attr("cx", width / 2)
                 .attr("cy", height / 2)
                 .attr("r", projection.scale())
-                .style("fill", "#1E90FF"); // Darker blue for the ocean
+                .style("fill", "#1E90FF"); // Ocean color
         }
 
+        // Function to draw the globe
         function drawGlobe() {
             d3.json('world-110m_with_names.v1.json', function(error, world) {
                 if (error) throw error;
 
-                // 绘制国家轮廓
                 const countries = topojson.feature(world, world.objects.countries).features;
                 svg.selectAll(".segment")
                     .data(countries)
                     .enter().append("path")
                     .attr("class", "segment")
                     .attr("d", path)
-                    .style("stroke", "#FFF") // 白色边界以增加对比度
+                    .style("stroke", "#FFF") // Country borders
                     .style("stroke-width", "0.5px")
-                    .style("fill", "#32CD32") // 浅绿色陆地
+                    .style("fill", d => countryCasesMap[d.properties.name] ? "#32CD32" : "#AAAAAA") // Fallback color if no data
                     .on("mouseover", function(d) {
-                        d3.select(this).style("fill", "#FFD700"); // 高亮颜色
-                        showCountryName(d.properties.name, d.id); // 显示国家名称和 ISO 代码
+                        d3.select(this).style("fill", "#FFD700"); // Highlight color
+                        showCountryName(d.properties.name, countryCasesMap[d.properties.name] || 'No data');
                     })
                     .on("mouseout", function(d) {
-                        d3.select(this).style("fill", "#32CD32"); // 重置为原始颜色
+                        d3.select(this).style("fill", d => countryCasesMap[d.properties.name] ? "#32CD32" : "#AAAAAA"); // Reset color
                         hideCountryName();
                     });
-
-
             });
         }
 
 
 
-        function showCountryName(name, isoCode) {
-            const cases = countryCasesMap[isoCode] || 'No data';
+        function showCountryName(name, data) {
+            const displayData = data || 'No data'; // Ensure there's a fallback if no data is available
             svg.append("text")
                 .attr("class", "countryName")
                 .attr("x", 20)
                 .attr("y", 35)
-                .text(`${name}: ${cases} cases`)
+                .text(`${name}: ${displayData}`) // Display the country name and its data
                 .style("font-size", "20px")
                 .style("fill", "black");
         }
+
 
         function hideCountryName() {
             svg.selectAll(".countryName").remove();
