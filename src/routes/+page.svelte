@@ -58,6 +58,7 @@
             drawGraticule();
             // Re-enable rotation after updating
             enableRotation();
+            enableDrag();
         }
 
 
