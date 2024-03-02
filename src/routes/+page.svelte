@@ -15,13 +15,25 @@
             .translate([width / 2, height / 2]);
         const path = d3.geoPath().projection(projection);
         const graticule = d3.geoGraticule();
+        let countryCasesMap = {}; // 存储国家 ISO 代码和 COVID-19 总病例数的映射
 
-        drawOcean();
-        drawGlobe();
-        drawGraticule();
-        enableRotation();
-        enableDrag();
-        setupZoom();
+        // 加载 CSV 数据
+        d3.csv("gdp-per-capita-worldbank.csv", function(error, csvData) {
+            if (error) throw error;
+
+            // 填充 countryCasesMap
+            csvData.forEach(function(d) {
+                countryCasesMap[d.iso_code] = d.total_cases;
+            });
+
+            // 一旦数据加载完毕，绘制地图和相关功能
+            drawOcean();
+            drawGlobe();
+            drawGraticule();
+            enableRotation();
+            enableDrag();
+            setupZoom();
+        });
 
         function drawOcean() {
             svg.append("circle")
@@ -32,42 +44,47 @@
         }
 
         function drawGlobe() {
-            d3.json('https://d3js.org/world-110m.v1.json', function(error, world) {
+            d3.json('world-110m_with_names.v1.json', function(error, world) {
                 if (error) throw error;
 
+                // 绘制国家轮廓
                 const countries = topojson.feature(world, world.objects.countries).features;
                 svg.selectAll(".segment")
                     .data(countries)
                     .enter().append("path")
                     .attr("class", "segment")
                     .attr("d", path)
-                    .style("stroke", "#FFF") // White borders for contrast
+                    .style("stroke", "#FFF") // 白色边界以增加对比度
                     .style("stroke-width", "0.5px")
-                    .style("fill", "#32CD32") // Greenish land color
+                    .style("fill", "#32CD32") // 浅绿色陆地
                     .on("mouseover", function(d) {
-                        d3.select(this).style("fill", "#FFD700"); // Highlight color
-                        showCountryName(d.properties.name);
+                        d3.select(this).style("fill", "#FFD700"); // 高亮颜色
+                        showCountryName(d.properties.name, d.id); // 显示国家名称和 ISO 代码
                     })
                     .on("mouseout", function(d) {
-                        d3.select(this).style("fill", "#32CD32"); // Reset to original color
+                        d3.select(this).style("fill", "#32CD32"); // 重置为原始颜色
                         hideCountryName();
                     });
+
+
             });
         }
 
-        // 添加新的函数来显示和隐藏国家名
-        function showCountryName(name) {
+
+
+        function showCountryName(name, isoCode) {
+            const cases = countryCasesMap[isoCode] || 'No data';
             svg.append("text")
                 .attr("class", "countryName")
-                .attr("x", 20) // 根据需要调整文本位置
+                .attr("x", 20)
                 .attr("y", 35)
-                .text(name)
+                .text(`${name}: ${cases} cases`)
                 .style("font-size", "20px")
                 .style("fill", "black");
         }
 
         function hideCountryName() {
-            svg.selectAll(".countryName").remove(); // 移除国家名的文本元素
+            svg.selectAll(".countryName").remove();
         }
 
         function drawGraticule() {
@@ -76,7 +93,7 @@
                 .attr("class", "graticule")
                 .attr("d", path)
                 .style("fill", "none")
-                .style("stroke", "#DDD") // Light gray graticule for a subtle effect
+                .style("stroke", "#DDD")
                 .style("stroke-opacity", 0.5);
         }
 
@@ -99,11 +116,8 @@
                 .on('drag', function() {
                     const dx = d3.event.dx;
                     const dy = d3.event.dy;
-                    const sensitivity = 0.25; // Adjust for slower drag
                     const rotate = projection.rotate();
-                    const scaledDx = dx * sensitivity;
-                    const scaledDy = dy * sensitivity;
-                    projection.rotate([rotate[0] + scaledDx, rotate[1] - scaledDy]);
+                    projection.rotate([rotate[0] + dx, rotate[1] - dy]);
                     svg.selectAll("path").attr("d", path);
                 })
                 .on('end', function() {
@@ -116,12 +130,8 @@
         function setupZoom() {
             const zoom = d3.zoom()
                 .scaleExtent([1, 8])
-                .on('zoom', function(event) {
-                    const {transform} = event;
-                    const zoomScale = transform.k * 250; // Adjust '250' based on your initial scale
-                    projection.scale(zoomScale);
-                    svg.selectAll("path.segment").attr("d", path);
-                    svg.selectAll("circle").attr("r", projection.scale());
+                .on('zoom', function() {
+                    svg.attr("transform", d3.event.transform);
                 });
 
             svg.call(zoom);
@@ -129,4 +139,3 @@
     </script>
 </body>
 </html>
-
