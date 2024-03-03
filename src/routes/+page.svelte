@@ -1,16 +1,48 @@
 <!DOCTYPE html>
 <html>
+    <head>
+        <style>
+          .bar {
+            fill: steelblue;
+        }
+        
+        .bar:hover {
+            fill: orange;
+        }
+        
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #000;
+            shape-rendering: crispEdges;
+        }
+        
+        .axis text {
+            font-family: sans-serif;
+            font-size: 11px;
+        }
+        
+        .axis-label {
+            font-size: 14px;
+            text-anchor: middle;
+        }
+        </style>
+    </head>
 <body>
     <!-- Dropdown for selecting a year -->
-    <label for="yearSelector">Select Year:</label>
+    <label for="yearSelector">Which year are you interested in?</label>
     <select id="yearSelector"></select>
-    <svg></svg>
+    <svg>
+    </svg>
     <!-- D3.js and TopoJSON for map rendering -->
     <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
     <script>
-        const width = 960;
-        const height = 500;
+        // Place this at the top of your D3.js script, after setting up the main SVG
+// Define axes here as well
+
+        const width = 1200;
+        const height = 700;
         let isDragging = false;
         const svg = d3.select('svg')
             .attr('width', width).attr('height', height);
@@ -21,14 +53,32 @@
         const graticule = d3.geoGraticule();
         let countryCasesMap = {};
         let csvData; // Global variable to store CSV data
-        const barChartWidth = 500;
-        const barChartHeight = 300;
-        const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+        const margin = { top: 20, right: 240, bottom: 70, left: 70 },
+              barChartWidth = 1000 ,
+              barChartHeight = 500;
 
-        const barSvg = d3.select('body').append('svg')
-            .attr('width', barChartWidth)
-            .attr('height', barChartHeight);
+        const xScale = d3.scaleLinear()
+            .range([0, barChartWidth]);
+            
+        const yScale = d3.scaleBand()
+            .range([barChartHeight, 0])
+            .padding(0.1);
+            const svgContainer = d3.select('svg');
 
+// Add a title to the SVG
+svgContainer.append("text")
+  .attr("x", width / 2  ) // This will position the text in the center of the SVG
+  .attr("y", margin.top + 20) // This positions the text from the top of the SVG
+  .attr("text-anchor", "middle") // This centers the text (horizontally)
+  .style("font-size", "24px") // Change the font size as needed
+  .style("font-weight", "bold") // Optional: makes the text bold
+  .text("GDP Per Capita Over Time 1990 - 2021"); // Replace with your actual title
+            
+    const barSvg = d3.select('body').append('svg')
+    .attr('width', barChartWidth + margin.left + margin.right)
+    .attr('height', barChartHeight + margin.top + margin.bottom)
+    .append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
 
 
         // Load CSV data
@@ -86,6 +136,7 @@
 
         // Function to draw the globe
         function drawGlobe() {
+
             d3.json('world-110m_with_names.v1.json', function(error, world) {
                 if (error) throw error;
 
@@ -107,8 +158,33 @@
                         hideCountryName();
                     });
             });
+
         }
 
+        function updateLineChart(countryName) {
+  // Filter the data for the selected country
+  const countryData = csvData.filter(d => d.Entity === countryName);
+
+  // Update the scales
+  xScaleLine.domain(d3.extent(countryData, d => d.Year));
+  yScaleLine.domain([0, d3.max(countryData, d => +d["GDP per capita"])]);
+  
+  // Define the line
+  const line = d3.line()
+    .x(d => xScaleLine(d.Year))
+    .y(d => yScaleLine(+d["GDP per capita"]));
+
+  // Update the line chart
+  lineChartSvg.selectAll(".line")
+    .data([countryData]) // Bind the data for the selected country
+    .join("path")
+    .attr("class", "line")
+    .attr("d", line)
+    .attr("fill", "none")
+    .attr("stroke", "blue");
+
+  // ... Add code to update the axes as well
+}
 
 
         function showCountryName(name, data) {
@@ -153,12 +229,41 @@
                     lastTime = now; // 更新上一次旋转的时间
 
                     const rotate = projection.rotate();
-                    const rotationSpeed = 0.02; // 控制旋转速度，可根据需要调整
+                    const rotationSpeed = 0.005; // 控制旋转速度，可根据需要调整
                     projection.rotate([rotate[0] + rotationSpeed * delta, rotate[1]]);
                     svg.selectAll("path").attr("d", path);
                 }
             });
         }
+
+        // Function to update the line graph based on the country name
+function updateLineGraph(countryName) {
+  // Filter the data to get the time series for the given country
+  const timeSeriesData = csvData.filter(d => d.Entity === countryName);
+
+  // Update the domains of scales based on the new data
+  xScaleLine.domain(d3.extent(timeSeriesData, d => d.Year));
+  yScaleLine.domain([0, d3.max(timeSeriesData, d => +d["GDP per capita, PPP (constant 2017 international $)"])]);
+
+  // Update the axes
+  xAxisLine.call(d3.axisBottom(xScaleLine));
+  yAxisLine.call(d3.axisLeft(yScaleLine));
+
+  // Generate the line
+  const line = d3.line()
+    .x(d => xScaleLine(d.Year))
+    .y(d => yScaleLine(+d["GDP per capita, PPP (constant 2017 international $)"]));
+
+  // Bind the data to the line and update the path
+  lineSvg.selectAll(".line")
+    .data([timeSeriesData])
+    .join("path")
+    .attr("class", "line")
+    .attr("d", line)
+    .style("fill", "none")
+    .style("stroke", "steelblue")
+    .style("stroke-width", "2px");
+}
 
 
         function enableDrag() {
@@ -180,71 +285,109 @@
             svg.call(drag);
         }
 
-        function setupZoom() {
-            const zoom = d3.zoom()
-                .scaleExtent([1, 8])
-                .on('zoom', function() {
-                    svg.attr("transform", d3.event.transform);
-                });
-
-            svg.call(zoom);
-        }
         // Function to update the bar chart
-        function updateBarChart(selectedYear) {
-            // Filter and sort data
-            const sortedData = csvData.filter(d => d.Year == selectedYear)
-                .sort((a, b) => b["GDP per capita, PPP (constant 2017 international $)"] - a["GDP per capita, PPP (constant 2017 international $)"])
-                .slice(0, 15); // Take top 15
+       // Assuming that your sortedData is correctly sorted and contains the data for the selected year
+function updateBarChart(selectedYear) {
+    // Filter and sort data
+    const sortedData = csvData.filter(d => d.Year == selectedYear)
+        .sort((a, b) => b["GDP per capita, PPP (constant 2017 international $)"] - a["GDP per capita, PPP (constant 2017 international $)"])
+        .slice(0, 15); // Take top 15
 
-            // Update scales
-            const x = d3.scaleLinear()
-                .range([margin.left, barChartWidth - margin.right])
-                .domain([0, d3.max(sortedData, d => d["GDP per capita, PPP (constant 2017 international $)"])]);
+        const maxBarHeight = barChartHeight / sortedData.length;
 
-            const y = d3.scaleBand()
-                .range([margin.top, barChartHeight - margin.bottom])
-                .domain(sortedData.map(d => d.Entity))
-                .padding(0.1);
+const yScale = d3.scaleBand()
+    .rangeRound([0, barChartHeight]) // The range is the total height available
+    .paddingInner(0.1) // Adjust padding to manage spacing between bars
+    .domain(sortedData.map(d => d.Entity));
 
-            // Remove old bars
-            barSvg.selectAll(".bar").remove();
+// Now you update the bar height when appending the bars using the yScale
+barSvg.selectAll(".bar")
+    .data(sortedData)
+    .enter().append("rect")
+    .attr("class", "bar")
+    .attr("x", 0)
+    .attr("y", d => yScale(d.Entity))
+    .attr("width", d => xScale(+d["GDP per capita, PPP (constant 2017 international $)"]))
+    .attr("height", yScale.bandwidth()); // This uses the scale's computed bandwidth
+    barSvg.selectAll(".bar")
+  // ... (existing code for creating bars)
+  .on("mouseover", function(event, d) {
+    // When mouseover event is fired, call the update function for the line graph
+    updateLineGraph(d.Entity);
+  })
+  .on("mouseout", function() {
+    // Clear the line graph or reset it when the mouse leaves a bar
+    lineSvg.selectAll(".line").remove();
+    // You might want to remove axes or additional text as well depending on your implementation
+  });
+// Update the SVG height if necessary based on the new calculations
+const totalHeightRequired = maxBarHeight * sortedData.length;
+if (totalHeightRequired > barChartHeight) {
+    // Increase the height of the SVG to accommodate all bars
+    d3.select('svg')
+        .attr('height', totalHeightRequired + margin.top + margin.bottom);
+}
+    // Update scales
+    xScale.domain([0, d3.max(sortedData, d => +d["GDP per capita, PPP (constant 2017 international $)"])]);
+    yScale.domain(sortedData.map(d => d.Entity));
+    barSvg.selectAll('*').remove();
+    const g = barSvg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+    // Remove old bars and labels
+    barSvg.selectAll(".bar").remove();
+    barSvg.selectAll(".label").remove();
+    barSvg.selectAll(".value").remove();
+    barSvg.selectAll(".axis").remove();
 
-            // Remove old axes
-            barSvg.selectAll("g.axis").remove();
+    barSvg.selectAll(".bar")
+    .on("mouseover", function(d) {
+        // Call the highlight function with the country name
+        highlightCountryOnGlobe(d.Entity);
+    })
+    .on("mouseout", function() {
+        // Reset the globe visualization when not hovering
+        drawGlobe();
+    });
+    // Draw bars
+    g.selectAll('.bar')
+        .data(sortedData)
+        .enter().append('rect')
+        .attr('class', 'bar')
+        .attr('x', 40)
+        .attr('y', d => yScale(d.Entity))
+        .attr('width', d => xScale(+d["GDP per capita, PPP (constant 2017 international $)"]))
+        .attr('height', yScale.bandwidth());
 
-            // Draw bars
-            barSvg.selectAll(".bar")
-                .data(sortedData)
-                .enter().append("rect")
-                .attr("class", "bar")
-                .attr("x", x(0))
-                .attr("y", d => y(d.Entity))
-                .attr("width", d => x(d["GDP per capita, PPP (constant 2017 international $)"]) - x(0))
-                .attr("height", y.bandwidth());
 
-            // Add axes
-            barSvg.append("g")
-                .attr("class", "axis")
-                .attr("transform", "translate(0," + (barChartHeight - margin.bottom) + ")")
-                .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("~s")));
+    // Add x and y axes
+    g.append('g')
+        .attr('transform', `translate(0,${barChartHeight})`)
+        .call(d3.axisBottom(xScale));
 
-            barSvg.append("g")
-                .attr("class", "axis")
-                .attr("transform", "translate(" + margin.left + ",0)")
-                .call(d3.axisLeft(y));
+    // Draw the Y axis
 
-            // Add country names and GDP data
-            barSvg.selectAll(".text")
-                .data(sortedData)
-                .enter().append("text")
-                .attr("class", "label")
-                .attr("x", d => x(d["GDP per capita, PPP (constant 2017 international $)"]) - 3)
-                .attr("y", d => y(d.Entity) + y.bandwidth() / 2)
-                .attr("dy", ".35em")
-                .text(d => `${d.Entity}: ${d["GDP per capita, PPP (constant 2017 international $)"]}`)
-                .attr("text-anchor", "end")
-                .style("fill", "black");
-        }
+    // Append country names to the left of the bars
+    barSvg.selectAll(".label")
+        .data(sortedData)
+        .enter().append("text")
+        .attr("class", "label")
+        .attr("x", 100)
+        .attr("y", d => yScale(d.Entity) + yScale.bandwidth() / 2+ 15)
+        .attr("dy", ".35em")
+        .attr("text-anchor",    "end")
+        .text(d => d.Entity);
+
+    // Append values at the end of the bars
+    barSvg.selectAll(".value")
+        .data(sortedData)
+        .enter().append("text")
+        .attr("class", "value")
+        .attr("x", d => xScale(d["GDP per capita, PPP (constant 2017 international $)"]) + 120)
+        .attr("y", d => yScale(d.Entity) + yScale.bandwidth() / 2 + 20 )
+        .attr("dy", ".35em")
+        .attr("text-anchor", "start")
+        .text(d => d["GDP per capita, PPP (constant 2017 international $)"]);
+}
 
         // Call updateBarChart when the year is selected
         d3.select("#yearSelector").on("change", function() {
@@ -254,6 +397,8 @@
 
         // Initialize the bar chart with the first available year
         updateBarChart(years[0]);
+
+        
     </script>
 </body>
 </html>
