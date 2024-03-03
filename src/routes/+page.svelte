@@ -1,25 +1,30 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <title>World GDP Visualization</title>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <style>
+        .visualization-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
 <body>
     
     <!-- Dropdown for selecting a year -->
     <label for="yearSelector">Select Year:</label>
     <select id="yearSelector"></select>
-    <svg></svg>
-
+    
+    <!-- Container for the globe and bar chart -->
     <div class="visualization-container">
         <div id="barChart" style="width: 400px; height: 500px; float: left;"></div>
         <svg id="globe" width="960" height="500" style="float: right;"></svg>
     </div>
 
-    <!-- Container for the globe and region map -->
-    <div class="visualization-container">
-        <svg id="globe" width="960" height="500"></svg>
-    </div>
-
     
     <!-- D3.js and TopoJSON for map rendering -->
-    <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
     <script>
         const width = 960;
@@ -35,10 +40,6 @@
         let countryCasesMap = {};
         let csvData; // Global variable to store CSV data
 
-        
-
-        // Mapping of regions to their JSON files (update with actual paths
-
         // Load CSV data
         d3.csv("gdp-per-capita-worldbank.csv", function(error, data) {
             if (error) throw error;
@@ -51,32 +52,34 @@
                 yearSelector.append("option").text(year).attr("value", year);
             });
 
-            // Initialize the map with the first available year
+            // Initialize the visualization with the first available year
             updateMapForYear(years[0]);
         });
 
         // Update map based on selected year
-        // Update map based on selected year
-        function updateMapForYear(selectedYear) {
-            countryCasesMap = {}; // Reset the map
-            csvData.filter(d => d.Year == selectedYear).forEach(d => {
-                countryCasesMap[d.Entity] = +d["GDP per capita, PPP (constant 2017 international $)"];
-            });
+       // Update map based on selected year
+function updateMapForYear(selectedYear) {
+    countryCasesMap = {}; // Reset the map
+    csvData.filter(d => d.Year == selectedYear).forEach(d => {
+        countryCasesMap[d.Entity] = +d["GDP per capita, PPP (constant 2017 international $)"];
+    });
 
-            // Clear previous globe drawings and redraw
-            svg.selectAll(".segment").remove(); // Clear previous countries
-            svg.selectAll(".graticule").remove(); // Clear previous graticules
-            svg.selectAll(".countryName").remove(); // Clear country names
+    // Clear previous globe drawings and redraw
+    svg.selectAll(".segment").remove(); // Clear previous countries
+    svg.selectAll(".graticule").remove(); // Clear previous graticules
+    svg.selectAll(".countryName").remove(); // Clear country names
 
-            // Redraw map elements
-            drawOcean();
-            drawGlobe();
-            drawGraticule();
-            // Re-enable rotation after updating
-            enableRotation();
-            enableDrag();
-        }
-
+    // Redraw map elements
+    drawOcean();
+    drawGlobe();
+    drawGraticule();
+    // Re-enable rotation after updating
+    enableRotation();
+    enableDrag();
+    
+    // Update the visualization including the bar chart
+    updateVisualization(selectedYear);
+}
 
         // Listen for year selection changes
         d3.select("#yearSelector").on("change", function() {
@@ -106,12 +109,16 @@
         });
     });
 
-    // Sort and take the top 20 countries for the bar chart
-    dataForBarChart = dataForBarChart.sort((a, b) => b.value - a.value).slice(0, 20);
+    // Sort the data based on the GDP per capita value in descending order
+    dataForBarChart.sort((a, b) => b.value - a.value);
+
+    // Take the top 20 countries for the bar chart
+    dataForBarChart = dataForBarChart.slice(0, 20);
 
     drawGlobe(dataForMap);
     drawBarChart(dataForBarChart);
 }
+
 
 function drawBarChart(data) {
     // Clear the previous bar chart
@@ -121,48 +128,39 @@ function drawBarChart(data) {
         width = 400 - margin.left - margin.right,
         height = 500 - margin.top - margin.bottom;
 
-    const x = d3.scaleBand().rangeRound([0, width]).padding(0.1),
-        y = d3.scaleLinear().rangeRound([height, 0]);
+    const x = d3.scaleLinear().range([0, width]);
+    const y = d3.scaleBand().range([height, 0]).padding(0.1);
 
     const chart = d3.select("#barChart").append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
-      .append("g")
+        .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    x.domain(data.map(d => d.country));
-    y.domain([0, d3.max(data, d => d.value)]);
+    // Sort the data in descending order based on GDP per capita value
+    data.sort((a, b) => b.value - a.value);
 
-    chart.append("g")
-        .attr("class", "x axis")
-        .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x))
-        .selectAll("text")
-        .style("text-anchor", "end")
-        .attr("dx", "-.8em")
-        .attr("dy", ".15em")
-        .attr("transform", "rotate(-65)");
-
-    chart.append("g")
-        .attr("class", "y axis")
-        .call(d3.axisLeft(y))
-      .append("text")
-        .attr("transform", "rotate(-90)")
-        .attr("y", 6)
-        .attr("dy", "0.71em")
-        .attr("text-anchor", "end")
-        .text("GDP per capita");
+    x.domain([0, d3.max(data, d => d.value)]);
+    y.domain(data.map(d => d.country));
 
     chart.selectAll(".bar")
         .data(data)
-      .enter().append("rect")
+        .enter().append("rect")
         .attr("class", "bar")
-        .attr("x", d => x(d.country))
-        .attr("y", d => y(d.value))
-        .attr("width", x.bandwidth())
-        .attr("height", d => height - y(d.value));
-}
+        .attr("x", 0) // Start bars from the left edge
+        .attr("y", d => y(d.country))
+        .attr("width", d => x(d.value))
+        .attr("height", y.bandwidth())
+        .style("fill", "#69b3a2");
 
+    chart.append("g")
+        .attr("class", "x axis")
+        .call(d3.axisBottom(x));
+
+    chart.append("g")
+        .attr("class", "y axis")
+        .call(d3.axisLeft(y));
+}
 
         // Function to draw the globe
         function drawGlobe() {
@@ -190,38 +188,38 @@ function drawBarChart(data) {
         }
 
         function loadRegionMap(regionFile) {
-    if (!regionFile || regionFile === "") return; // Exit if no region selected
+            if (!regionFile || regionFile === "") return; // Exit if no region selected
 
-    d3.json(regionFile, function(error, region) {
-        if (error) {
-            console.error("Error loading the region map:", error);
-            return; // Exit if there's an error loading the file
+            d3.json(regionFile, function(error, region) {
+                if (error) {
+                    console.error("Error loading the region map:", error);
+                    return; // Exit if there's an error loading the file
+                }
+
+                regionSvg.selectAll("*").remove(); // Clear existing map
+
+                // Assuming the GeoJSON structure has a 'features' array directly under 'region'
+                // Adjust the feature extraction as per your GeoJSON structure
+                const features = region.features || (region.objects ? topojson.feature(region, region.objects.countries).features : []);
+
+                regionSvg.selectAll(".country")
+                    .data(features)
+                    .enter().append("path")
+                    .attr("class", "country")
+                    .attr("d", regionPath)
+                    .style("fill", "#ccc"); // Adjust style as needed
+            });
         }
 
-        regionSvg.selectAll("*").remove(); // Clear existing map
-
-        // Assuming the GeoJSON structure has a 'features' array directly under 'region'
-        // Adjust the feature extraction as per your GeoJSON structure
-        const features = region.features || (region.objects ? topojson.feature(region, region.objects.countries).features : []);
-
-        regionSvg.selectAll(".country")
-            .data(features)
-            .enter().append("path")
-            .attr("class", "country")
-            .attr("d", regionPath)
-            .style("fill", "#ccc"); // Adjust style as needed
-    });
-}
-
-d3.select("#regionSelector").on("change", function() {
-    const selectedRegion = this.value;
-    const regionFile = regionFiles[selectedRegion];
-    if (regionFile && regionFile !== "") {
-        loadRegionMap(regionFile);
-    } else {
-        console.log("No region file found for:", selectedRegion);
-    }
-});
+        d3.select("#regionSelector").on("change", function() {
+            const selectedRegion = this.value;
+            const regionFile = regionFiles[selectedRegion];
+            if (regionFile && regionFile !== "") {
+                loadRegionMap(regionFile);
+            } else {
+                console.log("No region file found for:", selectedRegion);
+            }
+        });
 
         function showCountryName(name, data) {
             const displayData = data || 'No data'; // Ensure there's a fallback if no data is available
@@ -233,7 +231,6 @@ d3.select("#regionSelector").on("change", function() {
                 .style("font-size", "20px")
                 .style("fill", "black");
         }
-
 
         function hideCountryName() {
             svg.selectAll(".countryName").remove();
@@ -272,7 +269,6 @@ d3.select("#regionSelector").on("change", function() {
             });
         }
 
-
         function enableDrag() {
             const drag = d3.drag()
                 .on('start', function() {
@@ -301,25 +297,8 @@ d3.select("#regionSelector").on("change", function() {
 
             svg.call(zoom);
         }
-
             
     </script>
 
-
 </body>
-
-<style>
-    .visualization-container, .map-container {
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-    }
-    </style>
-
-<!-- Adjusted container for the globe and region map with added class for styling -->
-<div class="visualization-container">
-    <svg id="globe" width="480" height="500"></svg> <!-- Adjusted width for the globe -->
-    <svg id="regionMap" width="480" height="500"></svg> <!-- Adjusted width for the region map -->
-</div>
-
 </html>
