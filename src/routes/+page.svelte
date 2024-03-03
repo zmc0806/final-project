@@ -26,17 +26,36 @@
             font-size: 14px;
             text-anchor: middle;
         }
+        #lineGraphContainer {
+    position: absolute;
+    top: 110px; /* Adjust as needed */
+    right: 250px; /* Adjust as needed */
+    width: 300px; /* Maintain or adjust size as needed */
+    height: 200px; /* Maintain or adjust size as needed */
+}
         </style>
     </head>
 <body>
     <!-- Dropdown for selecting a year -->
-    <label for="yearSelector">Which year are you interested in?</label>
-    <select id="yearSelector"></select>
+    <label for="yearSelector" style="font-size: 20px;">Which year are you interested in?</label>
+    <select id="yearSelector" style="font-size: 15px;" ></select>
+    <div id="lineGraphContainer"></div>
+    <div id="visualizationContainer" style="display: flex; justify-content: space-between; align-items: start;">
+        <div id="globeContainer" style="flex-grow: 1;">
+            <!-- Globe SVG and related elements here -->
+        </div>
+        <div id="lineGraphContainer" style="width: 300px; height: 200px;">
+            <!-- Line graph will be rendered here by Plotly -->
+        </div>
+    </div>
+    
     <svg>
+
     </svg>
     <!-- D3.js and TopoJSON for map rendering -->
     <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script> <!-- Plotly.js for line graph -->
     <script>
         // Place this at the top of your D3.js script, after setting up the main SVG
 // Define axes here as well
@@ -64,6 +83,89 @@
             .range([barChartHeight, 0])
             .padding(0.1);
             const svgContainer = d3.select('svg');
+            function generateLineGraphData(countryName) {
+        const countryData = csvData.filter(d => d.Entity === countryName);
+        const years = countryData.map(d => +d.Year);
+        const gdpPerCapita = countryData.map(d => +d["GDP per capita, PPP (constant 2017 international $)"]);
+
+        return {
+            years: years,
+            gdpPerCapita: gdpPerCapita
+        };
+    }
+    // Example function to add a highlighted point on the line graph for the selected year
+    function updateGraphWithHighlightedYear(countryName, selectedYear) {
+    const lineGraphData = generateLineGraphData(countryName);
+
+    // Debugging: Log the data to verify it's as expected
+    console.log("Line Graph Data:", lineGraphData);
+    
+    const index = lineGraphData.years.findIndex(year => year === selectedYear);
+    if (index === -1) {
+        console.error("Selected year not found in the data");
+        return;
+    }
+
+    const highlightX = [lineGraphData.years[index]];
+    const highlightY = [lineGraphData.gdpPerCapita[index]];
+
+    // Debugging: Log the highlight data
+    console.log("Highlight Data:", highlightX, highlightY);
+
+    const trace1 = {
+        x: lineGraphData.years,
+        y: lineGraphData.gdpPerCapita,
+        type: 'scatter',
+        mode: 'lines+markers',
+        marker: { color: 'blue' },
+    };
+
+    const trace2 = {
+        x: highlightX,
+        y: highlightY,
+        type: 'scatter',
+        mode: 'markers',
+        marker: { color: 'red', size: 14 },
+    };
+
+    const layout = {
+        title: `${countryName} - GDP Per Capita Over Time`,
+    };
+
+    Plotly.newPlot('lineGraphContainer', [trace1, trace2], layout);
+}
+
+
+    // Function to create a line graph for a given country using Plotly.js
+    function createLineGraph(countryName) {
+    const lineGraphData = generateLineGraphData(countryName);
+
+    const data = [{
+        x: lineGraphData.years,
+        y: lineGraphData.gdpPerCapita,
+        type: 'scatter',
+        mode: 'lines+markers',
+        marker: { color: 'blue' },
+        name: 'GDP per capita'
+    }];
+
+    const layout = {
+        title: `${countryName} - GDP Per Capita Over Time`,
+        xaxis: { title: 'Year' },
+        yaxis: { title: 'GDP per capita' },
+        width: 500, // Adjust width as needed
+        height: 500, // Adjust height as needed
+        margin: { // Adjust margins as needed
+            l: 50,
+            r: 50,
+            b: 50,
+            t: 50,
+            pad: 4
+        },
+    };
+
+    Plotly.newPlot('lineGraphContainer', data, layout);
+}
 
 // Add a title to the SVG
 svgContainer.append("text")
@@ -141,7 +243,26 @@ svgContainer.append("text")
                 if (error) throw error;
 
                 const countries = topojson.feature(world, world.objects.countries).features;
-                svg.selectAll(".segment")
+             d3.selectAll(".segment")
+            .on("mouseover", function(d) {
+                const countryName = d.properties.name;
+                const selectedYear = parseInt(document.getElementById("yearSelector").value);
+                console.log("Hovered country:", countryName);
+                createLineGraph(countryName); // Generate and display line graph
+                highlightYearOnGraph(selectedYear);
+            })
+            .on("mouseout", function(d) {
+                console.log("Mouseout");
+                d3.select('#lineGraphContainer').selectAll("*").remove(); // Clear line graph
+            });
+            d3.selectAll(".country").on("mouseover", function(event, d) {
+    const countryName = d.properties.name;
+    const selectedYear = parseInt(document.getElementById("yearSelector").value);
+    updateGraphWithHighlightedYear(countryName, selectedYear);
+});
+
+    // First, generate or update the line graph for the hovered country
+ svg.selectAll(".segment")
                     .data(countries)
                     .enter().append("path")
                     .attr("class", "segment")
@@ -150,42 +271,18 @@ svgContainer.append("text")
                     .style("stroke-width", "0.5px")
                     .style("fill", d => countryCasesMap[d.properties.name] ? "#32CD32" : "#AAAAAA") // Fallback color if no data
                     .on("mouseover", function(d) {
-                        d3.select(this).style("fill", "#FFD700"); // Highlight color
-                        showCountryName(d.properties.name, countryCasesMap[d.properties.name] || 'No data');
-                    })
-                    .on("mouseout", function(d) {
-                        d3.select(this).style("fill", d => countryCasesMap[d.properties.name] ? "#32CD32" : "#AAAAAA"); // Reset color
-                        hideCountryName();
-                    });
-            });
+                    d3.select(this).style("fill", "#FFD700"); // Highlight color
+                    const countryName = d.properties.name;
+                    createLineGraph(countryName); // This line was corrected
+                })
+                .on("mouseout", function(d) {
+                    d3.select(this).style("fill", d => countryCasesMap[d.properties.name] ? "#32CD32" : "#AAAAAA"); // Reset color
+                    // Clear the line graph container
+                    d3.select('#lineGraphContainer').html(''); // This line ensures the line graph is cleared on mouseout
+                });
+        });
 
         }
-
-        function updateLineChart(countryName) {
-  // Filter the data for the selected country
-  const countryData = csvData.filter(d => d.Entity === countryName);
-
-  // Update the scales
-  xScaleLine.domain(d3.extent(countryData, d => d.Year));
-  yScaleLine.domain([0, d3.max(countryData, d => +d["GDP per capita"])]);
-  
-  // Define the line
-  const line = d3.line()
-    .x(d => xScaleLine(d.Year))
-    .y(d => yScaleLine(+d["GDP per capita"]));
-
-  // Update the line chart
-  lineChartSvg.selectAll(".line")
-    .data([countryData]) // Bind the data for the selected country
-    .join("path")
-    .attr("class", "line")
-    .attr("d", line)
-    .attr("fill", "none")
-    .attr("stroke", "blue");
-
-  // ... Add code to update the axes as well
-}
-
 
         function showCountryName(name, data) {
             const displayData = data || 'No data'; // Ensure there's a fallback if no data is available
@@ -237,34 +334,6 @@ svgContainer.append("text")
         }
 
         // Function to update the line graph based on the country name
-function updateLineGraph(countryName) {
-  // Filter the data to get the time series for the given country
-  const timeSeriesData = csvData.filter(d => d.Entity === countryName);
-
-  // Update the domains of scales based on the new data
-  xScaleLine.domain(d3.extent(timeSeriesData, d => d.Year));
-  yScaleLine.domain([0, d3.max(timeSeriesData, d => +d["GDP per capita, PPP (constant 2017 international $)"])]);
-
-  // Update the axes
-  xAxisLine.call(d3.axisBottom(xScaleLine));
-  yAxisLine.call(d3.axisLeft(yScaleLine));
-
-  // Generate the line
-  const line = d3.line()
-    .x(d => xScaleLine(d.Year))
-    .y(d => yScaleLine(+d["GDP per capita, PPP (constant 2017 international $)"]));
-
-  // Bind the data to the line and update the path
-  lineSvg.selectAll(".line")
-    .data([timeSeriesData])
-    .join("path")
-    .attr("class", "line")
-    .attr("d", line)
-    .style("fill", "none")
-    .style("stroke", "steelblue")
-    .style("stroke-width", "2px");
-}
-
 
         function enableDrag() {
             const drag = d3.drag()
@@ -311,15 +380,6 @@ barSvg.selectAll(".bar")
     .attr("height", yScale.bandwidth()); // This uses the scale's computed bandwidth
     barSvg.selectAll(".bar")
   // ... (existing code for creating bars)
-  .on("mouseover", function(event, d) {
-    // When mouseover event is fired, call the update function for the line graph
-    updateLineGraph(d.Entity);
-  })
-  .on("mouseout", function() {
-    // Clear the line graph or reset it when the mouse leaves a bar
-    lineSvg.selectAll(".line").remove();
-    // You might want to remove axes or additional text as well depending on your implementation
-  });
 // Update the SVG height if necessary based on the new calculations
 const totalHeightRequired = maxBarHeight * sortedData.length;
 if (totalHeightRequired > barChartHeight) {
@@ -361,7 +421,7 @@ if (totalHeightRequired > barChartHeight) {
 
     // Add x and y axes
     g.append('g')
-        .attr('transform', `translate(0,${barChartHeight})`)
+        .attr('transform', `translate(40,${barChartHeight})`)
         .call(d3.axisBottom(xScale));
 
     // Draw the Y axis
