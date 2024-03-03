@@ -1,11 +1,23 @@
 <!DOCTYPE html>
 <html>
 <body>
+    
     <!-- Dropdown for selecting a year -->
     <label for="yearSelector">Select Year:</label>
     <select id="yearSelector"></select>
     <svg></svg>
 
+    <div class="visualization-container">
+        <div id="barChart" style="width: 400px; height: 500px; float: left;"></div>
+        <svg id="globe" width="960" height="500" style="float: right;"></svg>
+    </div>
+
+    <!-- Container for the globe and region map -->
+    <div class="visualization-container">
+        <svg id="globe" width="960" height="500"></svg>
+    </div>
+
+    
     <!-- D3.js and TopoJSON for map rendering -->
     <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
@@ -22,6 +34,10 @@
         const graticule = d3.geoGraticule();
         let countryCasesMap = {};
         let csvData; // Global variable to store CSV data
+
+        
+
+        // Mapping of regions to their JSON files (update with actual paths
 
         // Load CSV data
         d3.csv("gdp-per-capita-worldbank.csv", function(error, data) {
@@ -65,7 +81,7 @@
         // Listen for year selection changes
         d3.select("#yearSelector").on("change", function() {
             updateMapForYear(this.value);
-        });
+        }); 
 
         // Function to draw the ocean
         function drawOcean() {
@@ -75,6 +91,78 @@
                 .attr("r", projection.scale())
                 .style("fill", "#1E90FF"); // Ocean color
         }
+
+        function updateVisualization(selectedYear) {
+    // Filter data based on the selected year and whether we're looking at GDP
+    const filteredData = csvData.filter(d => d.Year == selectedYear);
+    const dataForMap = {};
+    let dataForBarChart = [];
+
+    filteredData.forEach(d => {
+        dataForMap[d.Entity] = +d["GDP per capita"]; // Assuming GDP data
+        dataForBarChart.push({
+            country: d.Entity,
+            value: +d["GDP per capita"]
+        });
+    });
+
+    // Sort and take the top 20 countries for the bar chart
+    dataForBarChart = dataForBarChart.sort((a, b) => b.value - a.value).slice(0, 20);
+
+    drawGlobe(dataForMap);
+    drawBarChart(dataForBarChart);
+}
+
+function drawBarChart(data) {
+    // Clear the previous bar chart
+    d3.select("#barChart").selectAll("*").remove();
+
+    const margin = {top: 20, right: 20, bottom: 30, left: 40},
+        width = 400 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom;
+
+    const x = d3.scaleBand().rangeRound([0, width]).padding(0.1),
+        y = d3.scaleLinear().rangeRound([height, 0]);
+
+    const chart = d3.select("#barChart").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    x.domain(data.map(d => d.country));
+    y.domain([0, d3.max(data, d => d.value)]);
+
+    chart.append("g")
+        .attr("class", "x axis")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x))
+        .selectAll("text")
+        .style("text-anchor", "end")
+        .attr("dx", "-.8em")
+        .attr("dy", ".15em")
+        .attr("transform", "rotate(-65)");
+
+    chart.append("g")
+        .attr("class", "y axis")
+        .call(d3.axisLeft(y))
+      .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 6)
+        .attr("dy", "0.71em")
+        .attr("text-anchor", "end")
+        .text("GDP per capita");
+
+    chart.selectAll(".bar")
+        .data(data)
+      .enter().append("rect")
+        .attr("class", "bar")
+        .attr("x", d => x(d.country))
+        .attr("y", d => y(d.value))
+        .attr("width", x.bandwidth())
+        .attr("height", d => height - y(d.value));
+}
+
 
         // Function to draw the globe
         function drawGlobe() {
@@ -101,7 +189,39 @@
             });
         }
 
+        function loadRegionMap(regionFile) {
+    if (!regionFile || regionFile === "") return; // Exit if no region selected
 
+    d3.json(regionFile, function(error, region) {
+        if (error) {
+            console.error("Error loading the region map:", error);
+            return; // Exit if there's an error loading the file
+        }
+
+        regionSvg.selectAll("*").remove(); // Clear existing map
+
+        // Assuming the GeoJSON structure has a 'features' array directly under 'region'
+        // Adjust the feature extraction as per your GeoJSON structure
+        const features = region.features || (region.objects ? topojson.feature(region, region.objects.countries).features : []);
+
+        regionSvg.selectAll(".country")
+            .data(features)
+            .enter().append("path")
+            .attr("class", "country")
+            .attr("d", regionPath)
+            .style("fill", "#ccc"); // Adjust style as needed
+    });
+}
+
+d3.select("#regionSelector").on("change", function() {
+    const selectedRegion = this.value;
+    const regionFile = regionFiles[selectedRegion];
+    if (regionFile && regionFile !== "") {
+        loadRegionMap(regionFile);
+    } else {
+        console.log("No region file found for:", selectedRegion);
+    }
+});
 
         function showCountryName(name, data) {
             const displayData = data || 'No data'; // Ensure there's a fallback if no data is available
@@ -181,6 +301,25 @@
 
             svg.call(zoom);
         }
+
+            
     </script>
+
+
 </body>
+
+<style>
+    .visualization-container, .map-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }
+    </style>
+
+<!-- Adjusted container for the globe and region map with added class for styling -->
+<div class="visualization-container">
+    <svg id="globe" width="480" height="500"></svg> <!-- Adjusted width for the globe -->
+    <svg id="regionMap" width="480" height="500"></svg> <!-- Adjusted width for the region map -->
+</div>
+
 </html>
