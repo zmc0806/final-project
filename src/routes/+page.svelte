@@ -1,7 +1,7 @@
 <nav>
 	<a href="/">home</a>
-    <a href="gdp">gdp</a>
-	<a href="gini">gini</a>
+    <a href="/gdp">g</a>
+	<a href="/gini">gini</a>
 </nav>
 
 <script>
