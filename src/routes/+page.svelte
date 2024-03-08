@@ -1,5 +1,5 @@
 <nav>
-	<a href="/">home</a>
+
     <a href="/gdp">g</a>
 	<a href="/gini">gini</a>
 </nav>
